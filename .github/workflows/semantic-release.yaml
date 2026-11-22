@@ -1,0 +1,55 @@
+name: semantic release
+
+on:
+  workflow_call:
+    inputs: {}
+    outputs:
+      next_version:
+        value: ${{ jobs.semantic-release.outputs.next_version }}
+
+jobs:
+  semantic-release:
+    runs-on: ubuntu-latest
+    outputs:
+        next_version: ${{ steps.next_version.outputs.next_version }}
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install semantic-release
+        run: npm install -g semantic-release@23.1.1
+                            @semantic-release/git
+                            @semantic-release/github
+                            @semantic-release/changelog
+                            @semantic-release/exec
+                            conventional-changelog-conventionalcommits@7.0.2
+
+      - name: Get next version
+        run: npx semantic-release --dry-run
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set next version to outputs
+        id: next_version
+        run: |-
+          # if cat VERSION is exist, then cat VERSION
+          if [ -f "VERSION" ]; then
+            version=$(cat VERSION)
+          fi
+
+          # if version is not empty, then set next_version to outputs
+          if [ -n "$version" ]; then
+            echo "next_version=v$(cat VERSION)" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create release and publish
+        run: npx semantic-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
